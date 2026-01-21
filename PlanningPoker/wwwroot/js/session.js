@@ -78,11 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
     connection.on('StoryUpdated', (story) => {
         updateStoryDisplay(story);
         clearVoteSelection();
+        hideCountdown();
     });
 
     connection.on('VotesCleared', () => {
         clearVoteSelection();
         clearVotesDisplay();
+        hideCountdown();
     });
 
     connection.on('VoteCast', (voteCount, participantCount) => {
@@ -90,13 +92,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('VotesRevealed', (votes) => {
+        console.log('VotesRevealed received:', votes);
         renderVotes(votes);
+        hideCountdown();
+    });
+
+    connection.on('CountdownStarted', () => {
+        startCountdown();
     });
 
     connection.on('VotingReset', () => {
         clearVoteSelection();
         clearVotesDisplay();
         updateVoteStatus({}, participants);
+        hideCountdown();
     });
 
     connection.on('SetFacilitatorStatus', (isFacilitator) => {
@@ -256,6 +265,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('votesContainer');
         if (!container) return;
 
+        if (!votes || votes.length === 0) {
+            container.innerHTML = `
+                <div class="text-white/60 text-center py-8 col-span-2">
+                    Nog geen stemmen
+                </div>
+            `;
+            return;
+        }
+
         container.innerHTML = votes.map((vote, index) => `
             <div class="vote-reveal bg-white rounded-xl p-6 shadow-lg text-center border border-slate-100" style="animation-delay: ${index * 0.1}s">
                 <div class="text-sm font-medium text-slate-500 mb-2">${vote.participantName}</div>
@@ -272,5 +290,48 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearVotesDisplay() {
         const container = document.getElementById('votesContainer');
         if (container) container.innerHTML = '';
+    }
+
+    let countdownTimer = null;
+    let countdownValue = 3;
+
+    function startCountdown() {
+        console.log('Countdown started');
+        const container = document.getElementById('countdownContainer');
+        const numberEl = document.getElementById('countdownNumber');
+        const progressEl = document.getElementById('countdownProgress');
+        if (!container || !numberEl || !progressEl) return;
+
+        countdownValue = 3;
+        container.classList.remove('hidden');
+        numberEl.textContent = countdownValue;
+        progressEl.style.width = '100%';
+
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+        }
+
+        countdownTimer = setInterval(() => {
+            countdownValue--;
+            if (countdownValue > 0) {
+                numberEl.textContent = countdownValue;
+                const percentage = (countdownValue / 3) * 100;
+                progressEl.style.width = `${percentage}%`;
+            } else {
+                console.log('Countdown finished, hiding');
+                hideCountdown();
+            }
+        }, 1000);
+    }
+
+    function hideCountdown() {
+        const container = document.getElementById('countdownContainer');
+        if (container) {
+            container.classList.add('hidden');
+        }
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
     }
 });

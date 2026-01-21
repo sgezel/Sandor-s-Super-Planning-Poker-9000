@@ -7,10 +7,14 @@ namespace PlanningPoker.Hubs
     public class PokerHub : Hub
     {
         private readonly SessionService _sessionService;
+        private readonly IHubContext<PokerHub> _hubContext;
+        private static readonly Dictionary<string, CancellationTokenSource> _countdownTokens = new();
+        private static readonly Dictionary<string, object> _sessionLocks = new();
 
-        public PokerHub(SessionService sessionService)
+        public PokerHub(SessionService sessionService, IHubContext<PokerHub> hubContext)
         {
             _sessionService = sessionService;
+            _hubContext = hubContext;
         }
 
         public async Task JoinSession(string sessionId, string userName, bool isFacilitator = false)
@@ -35,7 +39,7 @@ namespace PlanningPoker.Hubs
             _sessionService.AddParticipant(sessionId, participant);
             await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
 
-            await Clients.Group(sessionId).SendAsync("ParticipantsUpdated", session.Participants);
+            await _hubContext.Clients.Group(sessionId).SendAsync("ParticipantsUpdated", session.Participants);
             await Clients.Caller.SendAsync("SessionData", session);
             await Clients.Caller.SendAsync("SetFacilitatorStatus", isActuallyFacilitator);
         }
@@ -47,6 +51,8 @@ namespace PlanningPoker.Hubs
                 return;
             }
 
+            CancelCountdown(sessionId);
+
             var story = new Models.UserStory
             {
                 Title = title,
@@ -56,8 +62,8 @@ namespace PlanningPoker.Hubs
             _sessionService.SetStory(sessionId, story);
 
             var session = _sessionService.GetSession(sessionId);
-            await Clients.Group(sessionId).SendAsync("StoryUpdated", story);
-            await Clients.Group(sessionId).SendAsync("VotesCleared");
+            await _hubContext.Clients.Group(sessionId).SendAsync("StoryUpdated", story);
+            await _hubContext.Clients.Group(sessionId).SendAsync("VotesCleared");
         }
 
         public async Task CastVote(string sessionId, string voteValue)
@@ -74,7 +80,7 @@ namespace PlanningPoker.Hubs
             var participantCount = _sessionService.GetParticipantCount(sessionId);
             var session = _sessionService.GetSession(sessionId);
 
-            await Clients.Group(sessionId).SendAsync("VoteCast", voteCount, participantCount);
+            await _hubContext.Clients.Group(sessionId).SendAsync("VoteCast", voteCount, participantCount);
 
             if (session != null &&
                 session.AutoRevealVotes &&
@@ -82,16 +88,74 @@ namespace PlanningPoker.Hubs
                 voteCount == participantCount &&
                 participantCount > 0)
             {
-                await Task.Delay(1500);
-                _sessionService.RevealVotes(sessionId);
-
-                var votesWithNames = session.Votes.Select(v => new
+                if (_countdownTokens.ContainsKey(sessionId))
                 {
-                    ParticipantName = session.Participants.FirstOrDefault(p => p.ConnectionId == v.Value.ParticipantConnectionId)?.Name ?? "Unknown",
-                    Value = v.Value.Value
-                }).ToList();
+                    _countdownTokens[sessionId].Cancel();
+                    _countdownTokens.Remove(sessionId);
+                }
 
-                await Clients.Group(sessionId).SendAsync("VotesRevealed", votesWithNames);
+                var cts = new CancellationTokenSource();
+                _countdownTokens[sessionId] = cts;
+
+                await _hubContext.Clients.Group(sessionId).SendAsync("CountdownStarted");
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(3000, cts.Token);
+                        _countdownTokens.Remove(sessionId);
+
+                        object sessionLock;
+                        if (!_sessionLocks.TryGetValue(sessionId, out sessionLock))
+                        {
+                            sessionLock = new object();
+                            _sessionLocks[sessionId] = sessionLock;
+                        }
+
+                        List<object>? votesToSend = null;
+                        lock (sessionLock)
+                        {
+                            var updatedSession = _sessionService.GetSession(sessionId);
+                            Console.WriteLine($"Countdown finished for session {sessionId}, IsVotesRevealed: {updatedSession?.IsVotesRevealed}, Votes count: {updatedSession?.Votes.Count}");
+
+                            if (updatedSession != null)
+                            {
+                                _sessionService.RevealVotes(sessionId);
+
+                                votesToSend = updatedSession.Votes.Select(v => new
+                                {
+                                    ParticipantName = updatedSession.Participants.FirstOrDefault(p => p.ConnectionId == v.Value.ParticipantConnectionId)?.Name ?? "Unknown",
+                                    Value = v.Value.Value
+                                }).ToList<object>();
+                                Console.WriteLine($"Votes to send: {votesToSend?.Count}");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Session is null!");
+                            }
+                        }
+
+                        if (votesToSend != null)
+                        {
+                            Console.WriteLine($"Sending VotesRevealed to group {sessionId}");
+                            await _hubContext.Clients.Group(sessionId).SendAsync("VotesRevealed", votesToSend);
+                        }
+                        else
+                        {
+                            Console.WriteLine("votesToSend is null, sending empty votes");
+                            await _hubContext.Clients.Group(sessionId).SendAsync("VotesRevealed", new List<object>());
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Console.WriteLine($"Countdown canceled for session {sessionId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in countdown: {ex.Message}");
+                    }
+                });
             }
         }
 
@@ -116,7 +180,7 @@ namespace PlanningPoker.Hubs
                 Value = v.Value.Value
             }).ToList();
 
-            await Clients.Group(sessionId).SendAsync("VotesRevealed", votesWithNames);
+            await _hubContext.Clients.Group(sessionId).SendAsync("VotesRevealed", votesWithNames);
         }
 
         public async Task ResetVoting(string sessionId)
@@ -126,8 +190,10 @@ namespace PlanningPoker.Hubs
                 return;
             }
 
+            CancelCountdown(sessionId);
+
             _sessionService.ResetVoting(sessionId);
-            await Clients.Group(sessionId).SendAsync("VotingReset");
+            await _hubContext.Clients.Group(sessionId).SendAsync("VotingReset");
         }
 
         public async Task SetAutoReveal(string sessionId, bool autoReveal)
@@ -141,7 +207,7 @@ namespace PlanningPoker.Hubs
             var session = _sessionService.GetSession(sessionId);
             if (session != null)
             {
-                await Clients.Group(sessionId).SendAsync("AutoRevealToggled", autoReveal);
+                await _hubContext.Clients.Group(sessionId).SendAsync("AutoRevealToggled", autoReveal);
             }
         }
 
@@ -156,7 +222,16 @@ namespace PlanningPoker.Hubs
             var session = _sessionService.GetSession(sessionId);
             if (session != null)
             {
-                await Clients.Group(sessionId).SendAsync("StoryDescriptionToggled", hide);
+                await _hubContext.Clients.Group(sessionId).SendAsync("StoryDescriptionToggled", hide);
+            }
+        }
+
+        private void CancelCountdown(string sessionId)
+        {
+            if (_countdownTokens.TryGetValue(sessionId, out var cts))
+            {
+                cts.Cancel();
+                _countdownTokens.Remove(sessionId);
             }
         }
 
@@ -173,7 +248,7 @@ namespace PlanningPoker.Hubs
                     {
                         _sessionService.RemoveParticipant(sessionPair.Key, Context.ConnectionId);
                         await Groups.RemoveFromGroupAsync(Context.ConnectionId, sessionPair.Key);
-                        await Clients.Group(sessionPair.Key).SendAsync("ParticipantsUpdated", session.Participants);
+                        await _hubContext.Clients.Group(sessionPair.Key).SendAsync("ParticipantsUpdated", session.Participants);
                         break;
                     }
                 }

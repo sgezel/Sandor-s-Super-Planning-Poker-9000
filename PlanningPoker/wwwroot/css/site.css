@@ -154,6 +154,19 @@ body {
     }
 }
 
+@keyframes countPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.countdown-pulse {
+    animation: countPulse 1s ease-in-out;
+}
+
 input {
     transition: all 0.2s ease;
 }
