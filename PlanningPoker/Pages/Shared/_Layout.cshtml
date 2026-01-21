@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Planning Poker</title>
+    <link rel="icon" type="image/png" href="~/img/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.3s ease-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen">
+    @RenderBody()
+
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
