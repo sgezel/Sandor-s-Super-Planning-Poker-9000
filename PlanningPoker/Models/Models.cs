@@ -9,6 +9,7 @@ namespace PlanningPoker.Models
         public List<Participant> Participants { get; set; } = new();
         public UserStory? CurrentStory { get; set; }
         public Dictionary<string, Vote> Votes { get; set; } = new();
+        public List<RoundResult> PreviousRounds { get; set; } = new();
         public bool IsVotesRevealed { get; set; }
         public bool AutoRevealVotes { get; set; } = false;
         public bool HideStoryDescription { get; set; } = false;
@@ -33,5 +34,19 @@ namespace PlanningPoker.Models
         public string ParticipantConnectionId { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
         public DateTime VotedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class RoundResult
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public List<RoundVoteResult> Votes { get; set; } = new();
+        public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class RoundVoteResult
+    {
+        public string ParticipantName { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
     }
 }

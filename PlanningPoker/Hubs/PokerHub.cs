@@ -194,6 +194,12 @@ namespace PlanningPoker.Hubs
 
             _sessionService.ResetVoting(sessionId);
             await _hubContext.Clients.Group(sessionId).SendAsync("VotingReset");
+
+            var session = _sessionService.GetSession(sessionId);
+            if (session != null)
+            {
+                await _hubContext.Clients.Group(sessionId).SendAsync("RoundHistoryUpdated", session.PreviousRounds);
+            }
         }
 
         public async Task SetAutoReveal(string sessionId, bool autoReveal)

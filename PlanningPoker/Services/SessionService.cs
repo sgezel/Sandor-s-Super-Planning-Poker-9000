@@ -111,6 +111,34 @@ namespace PlanningPoker.Services
         {
             if (_sessions.TryGetValue(sessionId, out var session))
             {
+                if (session.IsVotesRevealed && session.Votes.Count > 0)
+                {
+                    var voteResults = session.Votes.Values
+                        .Where(vote => !string.IsNullOrWhiteSpace(vote.Value))
+                        .Select(vote => new RoundVoteResult
+                        {
+                            ParticipantName = session.Participants.FirstOrDefault(p => p.ConnectionId == vote.ParticipantConnectionId)?.Name ?? "Unknown",
+                            Value = vote.Value
+                        }).ToList();
+
+                    if (voteResults.Count > 0)
+                    {
+                        var roundResult = new RoundResult
+                        {
+                            Title = session.CurrentStory?.Title ?? string.Empty,
+                            Description = session.CurrentStory?.Description ?? string.Empty,
+                            Votes = voteResults,
+                            CompletedAt = DateTime.UtcNow
+                        };
+
+                        session.PreviousRounds.Insert(0, roundResult);
+                        if (session.PreviousRounds.Count > 5)
+                        {
+                            session.PreviousRounds.RemoveRange(5, session.PreviousRounds.Count - 5);
+                        }
+                    }
+                }
+
                 session.Votes.Clear();
                 session.IsVotesRevealed = false;
             }

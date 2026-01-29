@@ -56,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderVotes(votesWithNames);
         }
 
+        renderRoundHistory(session.previousRounds);
+
         if (session.autoRevealVotes && autoRevealIndicator) {
             autoRevealIndicator?.classList.remove('hidden');
             autoRevealIndicator?.classList.add('flex');
@@ -106,6 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
         clearVotesDisplay();
         updateVoteStatus({}, participants);
         hideCountdown();
+    });
+
+    connection.on('RoundHistoryUpdated', (history) => {
+        renderRoundHistory(history);
     });
 
     connection.on('SetFacilitatorStatus', (isFacilitator) => {
@@ -280,6 +286,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">${vote.value}</div>
             </div>
         `).join('');
+    }
+
+    function renderRoundHistory(rounds) {
+        const container = document.getElementById('previousRoundsContainer');
+        if (!container) return;
+
+        if (!rounds || rounds.length === 0) {
+            container.innerHTML = `
+                <div class="text-white/60 text-center py-6">
+                    Nog geen resultaten
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = rounds.map((round, roundIndex) => {
+            const title = round.title && round.title.trim() ? round.title : 'Geen story';
+            const description = round.description && round.description.trim() ? round.description : '';
+            const votes = round.votes || [];
+
+            const voteCards = votes.map(vote => `
+                <div class="bg-white rounded-lg p-3 text-center shadow-md">
+                    <div class="text-xs font-medium text-slate-500 mb-1">${vote.participantName}</div>
+                    <div class="text-2xl font-bold text-slate-900">${vote.value}</div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="bg-white/10 rounded-xl p-4 border border-white/10" style="animation-delay: ${roundIndex * 0.05}s">
+                    <div class="text-white font-semibold text-base">${title}</div>
+                    ${description ? `<div class="text-white/70 text-sm mt-1">${description}</div>` : ''}
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        ${voteCards}
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     function clearVoteSelection() {
