@@ -106,10 +106,13 @@ namespace PlanningPoker.Hubs
                         await Task.Delay(3000, cts.Token);
                         _countdownTokens.Remove(sessionId);
 
-                        object sessionLock;
-                        if (!_sessionLocks.TryGetValue(sessionId, out sessionLock))
+                        object sessionLock = new object();
+                        if (_sessionLocks.TryGetValue(sessionId, out var existingLock) && existingLock != null)
                         {
-                            sessionLock = new object();
+                            sessionLock = existingLock;
+                        }
+                        else
+                        {
                             _sessionLocks[sessionId] = sessionLock;
                         }
 
