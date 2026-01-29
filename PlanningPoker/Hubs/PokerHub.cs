@@ -199,6 +199,7 @@ namespace PlanningPoker.Hubs
             if (session != null)
             {
                 await _hubContext.Clients.Group(sessionId).SendAsync("RoundHistoryUpdated", session.PreviousRounds);
+                await _hubContext.Clients.Group(sessionId).SendAsync("RoundNumberUpdated", session.RoundNumber);
             }
         }
 

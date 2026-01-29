@@ -10,6 +10,7 @@ namespace PlanningPoker.Models
         public UserStory? CurrentStory { get; set; }
         public Dictionary<string, Vote> Votes { get; set; } = new();
         public List<RoundResult> PreviousRounds { get; set; } = new();
+        public int RoundNumber { get; set; } = 1;
         public bool IsVotesRevealed { get; set; }
         public bool AutoRevealVotes { get; set; } = false;
         public bool HideStoryDescription { get; set; } = false;
@@ -41,6 +42,7 @@ namespace PlanningPoker.Models
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public List<RoundVoteResult> Votes { get; set; } = new();
+        public int RoundNumber { get; set; }
         public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
     }
 

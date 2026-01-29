@@ -15,7 +15,8 @@ namespace PlanningPoker.Services
             var session = new Session
             {
                 SessionId = sessionId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                RoundNumber = 1
             };
             _sessions[sessionId] = session;
             return session;
@@ -123,11 +124,18 @@ namespace PlanningPoker.Services
 
                     if (voteResults.Count > 0)
                     {
+                        var roundTitle = session.CurrentStory?.Title;
+                        if (string.IsNullOrWhiteSpace(roundTitle))
+                        {
+                            roundTitle = $"Ronde {session.RoundNumber}";
+                        }
+
                         var roundResult = new RoundResult
                         {
-                            Title = session.CurrentStory?.Title ?? string.Empty,
+                            Title = roundTitle,
                             Description = session.CurrentStory?.Description ?? string.Empty,
                             Votes = voteResults,
+                            RoundNumber = session.RoundNumber,
                             CompletedAt = DateTime.UtcNow
                         };
 
@@ -137,6 +145,11 @@ namespace PlanningPoker.Services
                             session.PreviousRounds.RemoveRange(5, session.PreviousRounds.Count - 5);
                         }
                     }
+                }
+
+                if (session.CurrentStory == null || string.IsNullOrWhiteSpace(session.CurrentStory.Title))
+                {
+                    session.RoundNumber += 1;
                 }
 
                 session.Votes.Clear();

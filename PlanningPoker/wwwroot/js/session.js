@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
         .build();
 
     let currentVote = null;
+    let currentRoundNumber = 1;
+    let currentStory = null;
+
+    updateStoryDisplay(currentStory);
 
     const setStoryBtn = document.getElementById('setStoryBtn');
     const revealVotesBtn = document.getElementById('revealVotesBtn');
@@ -41,11 +45,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('SessionData', (session) => {
+        currentRoundNumber = session.roundNumber || 1;
+        currentStory = session.currentStory || null;
+
         if (session.currentStory) {
             storyTitleInput.value = session.currentStory.title;
             storyDescriptionInput.value = session.currentStory.description;
-            updateStoryDisplay(session.currentStory);
         }
+        updateStoryDisplay(currentStory);
         renderParticipants(session.participants);
         updateVoteStatus(session.votes, session.participants);
         if (session.isVotesRevealed && session.votes) {
@@ -81,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('StoryUpdated', (story) => {
+        currentStory = story;
         updateStoryDisplay(story);
         clearVoteSelection();
         hideCountdown();
@@ -114,10 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
         clearVotesDisplay();
         updateVoteStatus({}, participants);
         hideCountdown();
+        updateStoryDisplay(currentStory);
     });
 
     connection.on('RoundHistoryUpdated', (history) => {
         renderRoundHistory(history);
+    });
+
+    connection.on('RoundNumberUpdated', (roundNumber) => {
+        currentRoundNumber = roundNumber || currentRoundNumber;
+        updateStoryDisplay(currentStory);
     });
 
     connection.on('SetFacilitatorStatus', (isFacilitator) => {
@@ -253,8 +267,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const titleEl = document.getElementById('currentStoryTitle');
         const descriptionEl = document.getElementById('currentStoryDescription');
 
-        if (titleEl) titleEl.textContent = story.title || 'Geen story';
-        if (descriptionEl) descriptionEl.textContent = story.description || '';
+        const hasStory = story && story.title && story.title.trim().length > 0;
+        if (titleEl) {
+            titleEl.textContent = hasStory ? story.title : `Ronde ${currentRoundNumber}`;
+        }
+        if (descriptionEl) {
+            descriptionEl.textContent = hasStory ? (story.description || '') : '';
+        }
     }
 
     function updateVoteStatus(votes, participants) {
@@ -415,7 +434,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.innerHTML = rounds.map((round, roundIndex) => {
-            const title = round.title && round.title.trim() ? round.title : 'Geen story';
+            const title = round.title && round.title.trim()
+                ? round.title
+                : (round.roundNumber ? `Ronde ${round.roundNumber}` : 'Geen story');
             const description = round.description && round.description.trim() ? round.description : '';
             const votes = round.votes || [];
 
