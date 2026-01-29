@@ -54,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 Value: vote.value
             }));
             renderVotes(votesWithNames);
+            if (shouldCelebrate(votesWithNames)) {
+                launchConfetti();
+            }
         }
 
         renderRoundHistory(session.previousRounds);
@@ -96,6 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
     connection.on('VotesRevealed', (votes) => {
         console.log('VotesRevealed received:', votes);
         renderVotes(votes);
+        if (shouldCelebrate(votes)) {
+            launchConfetti();
+        }
         hideCountdown();
     });
 
@@ -286,6 +292,113 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">${vote.value}</div>
             </div>
         `).join('');
+    }
+
+    function shouldCelebrate(votes) {
+        const participants = window.participants || [];
+        if (!votes || votes.length < 2 || participants.length < 2) {
+            return false;
+        }
+
+        if (votes.length !== participants.length) {
+            return false;
+        }
+
+        const normalized = votes.map(vote => `${vote.value ?? ''}`.trim());
+        if (normalized.some(value => value.length === 0)) {
+            return false;
+        }
+
+        const first = normalized[0];
+        return normalized.every(value => value === first);
+    }
+
+    function launchConfetti() {
+        const existing = document.getElementById('confetti-canvas');
+        if (existing) {
+            existing.remove();
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'confetti-canvas';
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.pointerEvents = 'none';
+        canvas.style.zIndex = '100';
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        const density = 140;
+        const colors = ['#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#A855F7', '#F97316'];
+        let particles = [];
+        let animationFrame = null;
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function createParticles() {
+            particles = Array.from({ length: density }, () => ({
+                x: Math.random() * window.innerWidth,
+                y: -20 - Math.random() * window.innerHeight * 0.3,
+                width: 6 + Math.random() * 6,
+                height: 8 + Math.random() * 10,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                rotation: Math.random() * Math.PI,
+                rotationSpeed: (Math.random() - 0.5) * 0.2,
+                velocityX: (Math.random() - 0.5) * 2.2,
+                velocityY: 2.5 + Math.random() * 3.5,
+                gravity: 0.06 + Math.random() * 0.08
+            }));
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            particles.forEach(particle => {
+                ctx.save();
+                ctx.translate(particle.x, particle.y);
+                ctx.rotate(particle.rotation);
+                ctx.fillStyle = particle.color;
+                ctx.fillRect(-particle.width / 2, -particle.height / 2, particle.width, particle.height);
+                ctx.restore();
+            });
+        }
+
+        function update() {
+            particles.forEach(particle => {
+                particle.x += particle.velocityX;
+                particle.y += particle.velocityY;
+                particle.velocityY += particle.gravity;
+                particle.rotation += particle.rotationSpeed;
+            });
+        }
+
+        function tick() {
+            update();
+            draw();
+            animationFrame = requestAnimationFrame(tick);
+        }
+
+        resizeCanvas();
+        createParticles();
+        tick();
+
+        const cleanup = () => {
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            canvas.remove();
+            window.removeEventListener('resize', resizeCanvas);
+        };
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(cleanup, 2200);
     }
 
     function renderRoundHistory(rounds) {
