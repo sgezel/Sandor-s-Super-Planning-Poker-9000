@@ -73,6 +73,31 @@ namespace PlanningPoker.Services
             }
         }
 
+        public Participant? AssignRandomFacilitator(string sessionId)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                if (session.Participants.Count == 0)
+                {
+                    session.FacilitatorConnectionId = string.Empty;
+                    return null;
+                }
+
+                var index = Random.Shared.Next(session.Participants.Count);
+                var newFacilitator = session.Participants[index];
+
+                session.FacilitatorConnectionId = newFacilitator.ConnectionId;
+                foreach (var participant in session.Participants)
+                {
+                    participant.IsFacilitator = participant.ConnectionId == newFacilitator.ConnectionId;
+                }
+
+                return newFacilitator;
+            }
+
+            return null;
+        }
+
         public void RemoveParticipant(string sessionId, string connectionId)
         {
             if (_sessions.TryGetValue(sessionId, out var session))

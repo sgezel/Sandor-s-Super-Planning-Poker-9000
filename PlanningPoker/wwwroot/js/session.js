@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentVote = null;
     let currentRoundNumber = 1;
     let currentStory = null;
+    let isFacilitatorState = isFacilitator;
 
     updateStoryDisplay(currentStory);
 
@@ -135,6 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('SetFacilitatorStatus', (isFacilitator) => {
+        const wasFacilitator = isFacilitatorState;
+        isFacilitatorState = isFacilitator;
+
         const storyInputs = document.getElementById('storyInputs');
         const facilitatorControls = document.getElementById('facilitatorControls');
         const hideStoryToggleContainer = document.getElementById('hideStoryToggleContainer');
@@ -143,6 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
             storyInputs?.classList.remove('hidden');
             facilitatorControls?.classList.remove('hidden');
             hideStoryToggleContainer?.classList.remove('hidden');
+
+            if (!wasFacilitator) {
+                showToast('Jij bent nu de man, de grote baas, de nieuwe leider!', 'success');
+            }
         } else {
             storyInputs?.classList.add('hidden');
             facilitatorControls?.classList.add('hidden');
@@ -315,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function shouldCelebrate(votes) {
         const participants = window.participants || [];
-        if (!votes || votes.length < 2 || participants.length < 2) {
+        if (!votes || votes.length < 1 || participants.length < 1) {
             return false;
         }
 

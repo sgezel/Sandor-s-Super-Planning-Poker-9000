@@ -253,9 +253,23 @@ namespace PlanningPoker.Hubs
                     var session = sessionPair.Value;
                     if (session.Participants.Any(p => p.ConnectionId == Context.ConnectionId))
                     {
+                        var wasFacilitator = session.FacilitatorConnectionId == Context.ConnectionId;
+                        Participant? newFacilitator = null;
+
                         _sessionService.RemoveParticipant(sessionPair.Key, Context.ConnectionId);
                         await Groups.RemoveFromGroupAsync(Context.ConnectionId, sessionPair.Key);
+
+                        if (wasFacilitator)
+                        {
+                            newFacilitator = _sessionService.AssignRandomFacilitator(sessionPair.Key);
+                        }
+
                         await _hubContext.Clients.Group(sessionPair.Key).SendAsync("ParticipantsUpdated", session.Participants);
+
+                        if (wasFacilitator && newFacilitator != null)
+                        {
+                            await _hubContext.Clients.Client(newFacilitator.ConnectionId).SendAsync("SetFacilitatorStatus", true);
+                        }
                         break;
                     }
                 }
