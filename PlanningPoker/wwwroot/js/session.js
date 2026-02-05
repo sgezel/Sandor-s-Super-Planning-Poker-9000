@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRoundNumber = 1;
     let currentStory = null;
     let isFacilitatorState = isFacilitator;
+    let currentVotes = {};
 
     updateStoryDisplay(currentStory);
 
@@ -43,11 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     connection.on('ParticipantsUpdated', (participants) => {
         renderParticipants(participants);
+        updateVoteStatus(currentVotes, participants);
     });
 
     connection.on('SessionData', (session) => {
         currentRoundNumber = session.roundNumber || 1;
         currentStory = session.currentStory || null;
+        currentVotes = session.votes || {};
 
         if (session.currentStory) {
             storyTitleInput.value = session.currentStory.title;
@@ -55,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateStoryDisplay(currentStory);
         renderParticipants(session.participants);
-        updateVoteStatus(session.votes, session.participants);
+        updateVoteStatus(currentVotes, session.participants);
         if (session.isVotesRevealed && session.votes) {
             const votesWithNames = Object.entries(session.votes).map(([connectionId, vote]) => ({
                 ParticipantName: session.participants.find(p => p.connectionId === vote.participantConnectionId)?.name || 'Unknown',
@@ -96,13 +99,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('VotesCleared', () => {
+        currentVotes = {};
         clearVoteSelection();
         clearVotesDisplay();
+        updateVoteStatus(currentVotes, window.participants || []);
         hideCountdown();
     });
 
-    connection.on('VoteCast', (voteCount, participantCount) => {
-        updateVoteStatus({ length: voteCount }, { length: participantCount });
+    connection.on('VoteCast', (votedConnectionIds) => {
+        currentVotes = (votedConnectionIds || []).reduce((votesByParticipant, connectionId) => {
+            votesByParticipant[connectionId] = true;
+            return votesByParticipant;
+        }, {});
+
+        updateVoteStatus(currentVotes, window.participants || []);
     });
 
     connection.on('VotesRevealed', (votes) => {
@@ -119,9 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on('VotingReset', () => {
+        currentVotes = {};
         clearVoteSelection();
         clearVotesDisplay();
-        updateVoteStatus({}, participants);
+        updateVoteStatus(currentVotes, window.participants || []);
         hideCountdown();
         updateStoryDisplay(currentStory);
     });
@@ -285,19 +296,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateVoteStatus(votes, participants) {
-        const voteCountEl = document.getElementById('voteCount');
-        const totalParticipantsEl = document.getElementById('totalParticipants');
+        const votedParticipantsEl = document.getElementById('votedParticipants');
+        const pendingParticipantsEl = document.getElementById('pendingParticipants');
         const progressBar = document.getElementById('votingProgress');
 
-        const voteCount = votes?.length || 0;
-        const total = participants?.length || 0;
+        const participantList = participants || [];
+        const votedIds = new Set(getVotedConnectionIds(votes));
+        const votedParticipants = participantList.filter(participant => votedIds.has(participant.connectionId));
+        const pendingParticipants = participantList.filter(participant => !votedIds.has(participant.connectionId));
 
-        if (voteCountEl) voteCountEl.textContent = voteCount;
-        if (totalParticipantsEl) totalParticipantsEl.textContent = total;
+        const voteCount = votedParticipants.length;
+        const total = participantList.length;
+
+        if (votedParticipantsEl) {
+            votedParticipantsEl.textContent = votedParticipants.length > 0
+                ? votedParticipants.map(participant => participant.name).join(', ')
+                : 'Niemand';
+        }
+
+        if (pendingParticipantsEl) {
+            pendingParticipantsEl.textContent = pendingParticipants.length > 0
+                ? pendingParticipants.map(participant => participant.name).join(', ')
+                : 'Niemand';
+        }
+
         if (progressBar) {
             const percentage = total > 0 ? (voteCount / total) * 100 : 0;
             progressBar.style.width = `${percentage}%`;
         }
+    }
+
+    function getVotedConnectionIds(votes) {
+        if (!votes) {
+            return [];
+        }
+
+        if (Array.isArray(votes)) {
+            return votes
+                .map(vote => typeof vote === 'string' ? vote : vote?.participantConnectionId)
+                .filter(Boolean);
+        }
+
+        if (typeof votes === 'object') {
+            return Object.keys(votes);
+        }
+
+        return [];
     }
 
     function renderVotes(votes) {

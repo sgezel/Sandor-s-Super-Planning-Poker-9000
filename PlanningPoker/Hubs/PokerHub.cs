@@ -76,11 +76,12 @@ namespace PlanningPoker.Hubs
 
             _sessionService.CastVote(sessionId, vote);
 
+            var session = _sessionService.GetSession(sessionId);
             var voteCount = _sessionService.GetVoteCount(sessionId);
             var participantCount = _sessionService.GetParticipantCount(sessionId);
-            var session = _sessionService.GetSession(sessionId);
+            var votedConnectionIds = session?.Votes.Keys.ToList() ?? new List<string>();
 
-            await _hubContext.Clients.Group(sessionId).SendAsync("VoteCast", voteCount, participantCount);
+            await _hubContext.Clients.Group(sessionId).SendAsync("VoteCast", votedConnectionIds);
 
             if (session != null &&
                 session.AutoRevealVotes &&
