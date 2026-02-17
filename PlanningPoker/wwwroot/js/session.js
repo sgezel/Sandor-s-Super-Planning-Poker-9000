@@ -417,12 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function shouldCelebrate(votes) {
-        const participants = window.participants || [];
-        if (!votes || votes.length < 1 || participants.length < 1) {
-            return false;
-        }
-
-        if (votes.length !== participants.length) {
+        if (!votes || votes.length < 1) {
             return false;
         }
 
