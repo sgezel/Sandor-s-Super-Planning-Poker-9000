@@ -9,6 +9,7 @@ namespace PlanningPoker.Hubs
         private readonly SessionService _sessionService;
         private readonly IHubContext<PokerHub> _hubContext;
         private static readonly Dictionary<string, CancellationTokenSource> _countdownTokens = new();
+        private static readonly Dictionary<string, CancellationTokenSource> _autoStartTokens = new();
         private static readonly Dictionary<string, object> _sessionLocks = new();
 
         public PokerHub(SessionService sessionService, IHubContext<PokerHub> hubContext)
@@ -52,6 +53,7 @@ namespace PlanningPoker.Hubs
             }
 
             CancelCountdown(sessionId);
+            CancelAutoStartNewRound(sessionId);
 
             var story = new Models.UserStory
             {
@@ -144,6 +146,7 @@ namespace PlanningPoker.Hubs
                         {
                             Console.WriteLine($"Sending VotesRevealed to group {sessionId}");
                             await _hubContext.Clients.Group(sessionId).SendAsync("VotesRevealed", votesToSend);
+                            ScheduleAutoStartNewRound(sessionId);
                         }
                         else
                         {
@@ -170,6 +173,7 @@ namespace PlanningPoker.Hubs
                 return;
             }
 
+            CancelAutoStartNewRound(sessionId);
             _sessionService.RevealVotes(sessionId);
             var session = _sessionService.GetSession(sessionId);
 
@@ -185,6 +189,7 @@ namespace PlanningPoker.Hubs
             }).ToList();
 
             await _hubContext.Clients.Group(sessionId).SendAsync("VotesRevealed", votesWithNames);
+            ScheduleAutoStartNewRound(sessionId);
         }
 
         public async Task ResetVoting(string sessionId)
@@ -195,6 +200,7 @@ namespace PlanningPoker.Hubs
             }
 
             CancelCountdown(sessionId);
+            CancelAutoStartNewRound(sessionId);
 
             _sessionService.ResetVoting(sessionId);
             await _hubContext.Clients.Group(sessionId).SendAsync("VotingReset");
@@ -222,6 +228,26 @@ namespace PlanningPoker.Hubs
             }
         }
 
+        public async Task SetAutoStartNewRound(string sessionId, bool autoStart)
+        {
+            if (!_sessionService.IsFacilitator(sessionId, Context.ConnectionId))
+            {
+                return;
+            }
+
+            _sessionService.SetAutoStartNewRound(sessionId, autoStart);
+            if (!autoStart)
+            {
+                CancelAutoStartNewRound(sessionId);
+            }
+
+            var session = _sessionService.GetSession(sessionId);
+            if (session != null)
+            {
+                await _hubContext.Clients.Group(sessionId).SendAsync("AutoStartNewRoundToggled", autoStart);
+            }
+        }
+
         public async Task SetHideStoryDescription(string sessionId, bool hide)
         {
             if (!_sessionService.IsFacilitator(sessionId, Context.ConnectionId))
@@ -243,6 +269,57 @@ namespace PlanningPoker.Hubs
             {
                 cts.Cancel();
                 _countdownTokens.Remove(sessionId);
+            }
+        }
+
+        private void ScheduleAutoStartNewRound(string sessionId)
+        {
+            var session = _sessionService.GetSession(sessionId);
+            if (session == null || !session.AutoStartNewRound)
+            {
+                return;
+            }
+
+            CancelAutoStartNewRound(sessionId);
+
+            var cts = new CancellationTokenSource();
+            _autoStartTokens[sessionId] = cts;
+            _ = _hubContext.Clients.Group(sessionId).SendAsync("AutoStartNewRoundScheduled", 5);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(5000, cts.Token);
+                    _autoStartTokens.Remove(sessionId);
+
+                    _sessionService.ResetVoting(sessionId);
+                    await _hubContext.Clients.Group(sessionId).SendAsync("VotingReset");
+
+                    var updatedSession = _sessionService.GetSession(sessionId);
+                    if (updatedSession != null)
+                    {
+                        await _hubContext.Clients.Group(sessionId).SendAsync("RoundHistoryUpdated", updatedSession.PreviousRounds);
+                        await _hubContext.Clients.Group(sessionId).SendAsync("RoundNumberUpdated", updatedSession.RoundNumber);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine($"Auto-start new round canceled for session {sessionId}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in auto-start new round: {ex.Message}");
+                }
+            });
+        }
+
+        private void CancelAutoStartNewRound(string sessionId)
+        {
+            if (_autoStartTokens.TryGetValue(sessionId, out var cts))
+            {
+                cts.Cancel();
+                _autoStartTokens.Remove(sessionId);
             }
         }
 

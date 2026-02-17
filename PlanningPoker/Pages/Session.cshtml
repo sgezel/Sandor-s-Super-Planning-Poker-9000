@@ -97,6 +97,13 @@
                         <span class="text-emerald-400 text-sm font-medium">Automatisch onthullen ingeschakeld</span>
                     </div>
 
+                    <div id="autoStartIndicator" class="hidden items-center gap-2 px-4 py-2 bg-sky-500/20 border border-sky-500/30 rounded-lg mb-4">
+                        <svg class="w-4 h-4 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-sky-200 text-sm font-medium">Nieuwe ronde start automatisch na 5 seconden</span>
+                    </div>
+
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold text-white tracking-tight">Kies een kaart</h2>
                         <div class="text-right text-sm font-medium space-y-1">
@@ -154,7 +161,7 @@
                 <div id="facilitatorControls" class="glassmorphism rounded-2xl p-6 hidden">
                     <h2 class="text-xl font-bold text-white mb-4 tracking-tight">Facilitator Controls</h2>
 
-                                <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center justify-between mb-4">
                                     <div class="flex items-center gap-3">
                                         <span class="text-white/80 font-medium text-sm">Auto-onthullen</span>
                                         <div class="relative inline-block w-12 h-6 transition-colors duration-200">
@@ -162,6 +169,19 @@
                                                    class="peer"
                                                    @(Model.AutoRevealVotes ? "checked" : "")>
                                             <div class="block w-12 h-6 bg-slate-400 rounded-full peer-checked:bg-emerald-500 transition-colors duration-200 pointer-events-none"></div>
+                                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-200 peer-checked:translate-x-6 pointer-events-none"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between mb-6">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-white/80 font-medium text-sm">Auto nieuwe ronde</span>
+                                        <div class="relative inline-block w-12 h-6 transition-colors duration-200">
+                                            <input type="checkbox" id="autoStartNewRoundToggle"
+                                                   class="peer"
+                                                   @(Model.AutoStartNewRound ? "checked" : "")>
+                                            <div class="block w-12 h-6 bg-slate-400 rounded-full peer-checked:bg-sky-500 transition-colors duration-200 pointer-events-none"></div>
                                             <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-200 peer-checked:translate-x-6 pointer-events-none"></div>
                                         </div>
                                     </div>

@@ -13,6 +13,7 @@ namespace PlanningPoker.Pages
         public string UserName { get; set; } = string.Empty;
         public bool IsFacilitator { get; set; }
         public bool AutoRevealVotes { get; set; }
+        public bool AutoStartNewRound { get; set; }
 
         public SessionModel(SessionService sessionService, ILogger<SessionModel> logger)
         {
@@ -34,6 +35,7 @@ namespace PlanningPoker.Pages
             if (!string.IsNullOrEmpty(sessionId))
             {
                 AutoRevealVotes = _sessionService.GetAutoReveal(sessionId);
+                AutoStartNewRound = _sessionService.GetAutoStartNewRound(sessionId);
             }
         }
     }

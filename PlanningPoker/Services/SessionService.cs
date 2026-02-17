@@ -218,6 +218,25 @@ namespace PlanningPoker.Services
             return session?.AutoRevealVotes ?? false;
         }
 
+        public void SetAutoStartNewRound(string sessionId, bool autoStart)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                session.AutoStartNewRound = autoStart;
+            }
+        }
+
+        public bool GetAutoStartNewRound([NotNullWhen(true)] string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                return false;
+            }
+
+            _sessions.TryGetValue(sessionId, out var session);
+            return session?.AutoStartNewRound ?? false;
+        }
+
         public void SetHideStoryDescription(string sessionId, bool hide)
         {
             if (_sessions.TryGetValue(sessionId, out var session))

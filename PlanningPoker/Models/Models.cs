@@ -13,6 +13,7 @@ namespace PlanningPoker.Models
         public int RoundNumber { get; set; } = 1;
         public bool IsVotesRevealed { get; set; }
         public bool AutoRevealVotes { get; set; } = false;
+        public bool AutoStartNewRound { get; set; } = false;
         public bool HideStoryDescription { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

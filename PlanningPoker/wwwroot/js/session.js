@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const storyDescriptionInput = document.getElementById('storyDescriptionInput');
     const autoRevealToggle = document.getElementById('autoRevealToggle');
     const autoRevealIndicator = document.getElementById('autoRevealIndicator');
+    const autoStartNewRoundToggle = document.getElementById('autoStartNewRoundToggle');
+    const autoStartIndicator = document.getElementById('autoStartIndicator');
     const hideStoryToggle = document.getElementById('hideStoryToggle');
     const storyContent = document.getElementById('storyContent');
 
@@ -78,6 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (autoRevealIndicator) {
             autoRevealIndicator?.classList.add('hidden');
             autoRevealIndicator?.classList.remove('flex');
+        }
+
+        if (autoStartNewRoundToggle) {
+            autoStartNewRoundToggle.checked = session.autoStartNewRound;
+        }
+
+        if (session.autoStartNewRound && autoStartIndicator) {
+            autoStartIndicator?.classList.remove('hidden');
+            autoStartIndicator?.classList.add('flex');
+        } else if (autoStartIndicator) {
+            autoStartIndicator?.classList.add('hidden');
+            autoStartIndicator?.classList.remove('flex');
         }
 
         if (session.hideStoryDescription && storyContent) {
@@ -181,6 +195,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    connection.on('AutoStartNewRoundToggled', (autoStart) => {
+        if (autoStartNewRoundToggle) {
+            autoStartNewRoundToggle.checked = autoStart;
+        }
+
+        if (autoStart) {
+            autoStartIndicator?.classList.remove('hidden');
+            autoStartIndicator?.classList.add('flex');
+        } else {
+            autoStartIndicator?.classList.add('hidden');
+            autoStartIndicator?.classList.remove('flex');
+        }
+    });
+
+    connection.on('AutoStartNewRoundScheduled', (seconds) => {
+        const delaySeconds = Number.isFinite(seconds) ? seconds : 5;
+        showToast(`Nieuwe ronde start automatisch over ${delaySeconds} seconden`, 'info');
+    });
+
     if (autoRevealToggle) {
         autoRevealToggle.addEventListener('change', () => {
             const autoReveal = autoRevealToggle.checked;
@@ -211,6 +244,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 storyContent.classList.add('hidden');
             } else if (!hide && storyContent) {
                 storyContent.classList.remove('hidden');
+            }
+        });
+    }
+
+    if (autoStartNewRoundToggle) {
+        autoStartNewRoundToggle.addEventListener('change', () => {
+            const autoStart = autoStartNewRoundToggle.checked;
+            connection.invoke('SetAutoStartNewRound', sessionId, autoStart).catch(err => {
+                console.error('Error setting auto-start new round:', err);
+                showToast('Kon auto nieuwe ronde niet instellen', 'error');
+            });
+
+            if (autoStart) {
+                autoStartIndicator?.classList.remove('hidden');
+                autoStartIndicator?.classList.add('flex');
+            } else {
+                autoStartIndicator?.classList.add('hidden');
+                autoStartIndicator?.classList.remove('flex');
             }
         });
     }
