@@ -119,7 +119,7 @@ namespace PlanningPoker.Services
 
         public void CastVote(string sessionId, Vote vote)
         {
-            if (_sessions.TryGetValue(sessionId, out var session))
+            if (_sessions.TryGetValue(sessionId, out var session) && !session.IsVotesRevealed)
             {
                 session.Votes[vote.ParticipantConnectionId] = vote;
             }
@@ -144,7 +144,8 @@ namespace PlanningPoker.Services
                         .Select(vote => new RoundVoteResult
                         {
                             ParticipantName = session.Participants.FirstOrDefault(p => p.ConnectionId == vote.ParticipantConnectionId)?.Name ?? "Unknown",
-                            Value = vote.Value
+                            Value = vote.Value,
+                            VotedAt = vote.VotedAt
                         }).ToList();
 
                     if (voteResults.Count > 0)
@@ -165,9 +166,9 @@ namespace PlanningPoker.Services
                         };
 
                         session.PreviousRounds.Insert(0, roundResult);
-                        if (session.PreviousRounds.Count > 5)
+                        if (session.PreviousRounds.Count > 20)
                         {
-                            session.PreviousRounds.RemoveRange(5, session.PreviousRounds.Count - 5);
+                            session.PreviousRounds.RemoveRange(20, session.PreviousRounds.Count - 20);
                         }
                     }
                 }

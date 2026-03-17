@@ -12,9 +12,9 @@ namespace PlanningPoker.Models
         public List<RoundResult> PreviousRounds { get; set; } = new();
         public int RoundNumber { get; set; } = 1;
         public bool IsVotesRevealed { get; set; }
-        public bool AutoRevealVotes { get; set; } = false;
-        public bool AutoStartNewRound { get; set; } = false;
-        public bool HideStoryDescription { get; set; } = false;
+        public bool AutoRevealVotes { get; set; } = true;
+        public bool AutoStartNewRound { get; set; } = true;
+        public bool HideStoryDescription { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
@@ -51,5 +51,6 @@ namespace PlanningPoker.Models
     {
         public string ParticipantName { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+        public DateTime VotedAt { get; set; }
     }
 }

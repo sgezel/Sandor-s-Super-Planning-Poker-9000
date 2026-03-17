@@ -8,14 +8,18 @@ namespace PlanningPoker.Hubs
     {
         private readonly SessionService _sessionService;
         private readonly IHubContext<PokerHub> _hubContext;
+        private readonly IWebHostEnvironment _env;
         private static readonly Dictionary<string, CancellationTokenSource> _countdownTokens = new();
         private static readonly Dictionary<string, CancellationTokenSource> _autoStartTokens = new();
         private static readonly Dictionary<string, object> _sessionLocks = new();
+        private static readonly Dictionary<string, DateTime> _lastMotivation = new();
+        private static readonly Random _random = new();
 
-        public PokerHub(SessionService sessionService, IHubContext<PokerHub> hubContext)
+        public PokerHub(SessionService sessionService, IHubContext<PokerHub> hubContext, IWebHostEnvironment env)
         {
             _sessionService = sessionService;
             _hubContext = hubContext;
+            _env = env;
         }
 
         public async Task JoinSession(string sessionId, string userName, bool isFacilitator = false)
@@ -261,6 +265,37 @@ namespace PlanningPoker.Hubs
             {
                 await _hubContext.Clients.Group(sessionId).SendAsync("StoryDescriptionToggled", hide);
             }
+        }
+
+        public async Task PlayMotivation(string sessionId)
+        {
+            var session = _sessionService.GetSession(sessionId);
+            if (session == null) return;
+
+            // Caller must have voted
+            if (!session.Votes.ContainsKey(Context.ConnectionId)) return;
+
+            // Votes already revealed — no need to motivate
+            if (session.IsVotesRevealed) return;
+
+            // Cooldown: 5 seconds between motivations per session
+            if (_lastMotivation.TryGetValue(sessionId, out var lastTime) &&
+                (DateTime.UtcNow - lastTime).TotalSeconds < 5)
+            {
+                return;
+            }
+            _lastMotivation[sessionId] = DateTime.UtcNow;
+
+            // Pick a random audio file
+            var audioPath = Path.Combine(_env.WebRootPath, "audio");
+            var audioFiles = Directory.GetFiles(audioPath, "*.mp3")
+                .Select(Path.GetFileName)
+                .ToArray();
+
+            if (audioFiles.Length == 0) return;
+
+            var audioFile = audioFiles[_random.Next(audioFiles.Length)];
+            await _hubContext.Clients.Group(sessionId).SendAsync("MotivationPlayed", audioFile);
         }
 
         private void CancelCountdown(string sessionId)
